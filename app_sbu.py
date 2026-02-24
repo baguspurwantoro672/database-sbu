@@ -1,120 +1,52 @@
-import tkinter as tk
-from tkinter import messagebox
+import streamlit as st
 import pandas as pd
 import os
 
-FILE_NAME = "database_sbu.xlsx"
+FILE_DB = "database_sbu.xlsx"
 
-# Buat file jika belum ada
-if not os.path.exists(FILE_NAME):
-    df = pd.DataFrame(columns=[
-        "Tahun",
-        "Nama Paket",
-        "OPD",
-        "Nilai HPS",
-        "Metode",
-        "SBU",
-        "Penyedia"
-    ])
-    df.to_excel(FILE_NAME, index=False)
+st.set_page_config(page_title="Database Historis SBU", layout="centered")
 
-# Simpan Data
-def simpan_data():
-    data = {
-        "Tahun": entry_tahun.get(),
-        "Nama Paket": entry_paket.get(),
-        "OPD": entry_opd.get(),
-        "Nilai HPS": entry_hps.get(),
-        "Metode": entry_metode.get(),
-        "SBU": entry_sbu.get(),
-        "Penyedia": entry_penyedia.get()
-    }
+st.title("📊 Database Historis SBU")
+st.write("Pencarian SBU Berdasarkan Nama Paket & Wilayah")
 
-    df = pd.read_excel(FILE_NAME)
-    df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
-    df.to_excel(FILE_NAME, index=False)
+if not os.path.exists(FILE_DB):
+    df = pd.DataFrame(columns=["Provinsi", "Kab/Kota", "Nama Paket", "Tahun", "SBU"])
+    df.to_excel(FILE_DB, index=False)
 
-    messagebox.showinfo("Sukses", "Data berhasil disimpan!")
-    kosongkan_form()
+df = pd.read_excel(FILE_DB)
 
-# Cari + Rekomendasi SBU
-def cari_data():
-    keyword = entry_cari.get().lower()
-    df = pd.read_excel(FILE_NAME)
+menu = st.sidebar.selectbox("Menu", ["Tambah Data", "Cari Paket"])
 
-    hasil = df[df["Nama Paket"].astype(str).str.lower().str.contains(keyword, na=False)]
+if menu == "Tambah Data":
+    st.subheader("Tambah Data Paket")
 
-    text_hasil.delete(1.0, tk.END)
+    provinsi = st.text_input("Provinsi")
+    kabkota = st.text_input("Kabupaten/Kota")
+    nama = st.text_input("Nama Paket")
+    tahun = st.text_input("Tahun")
+    sbu = st.text_input("SBU")
 
-    if hasil.empty:
-        text_hasil.insert(tk.END, "Data tidak ditemukan.\n")
-    else:
-        text_hasil.insert(tk.END, f"Ditemukan {len(hasil)} histori paket\n\n")
+    if st.button("Simpan"):
+        data_baru = pd.DataFrame([[provinsi, kabkota, nama, tahun, sbu]],
+                                 columns=["Provinsi", "Kab/Kota", "Nama Paket", "Tahun", "SBU"])
 
-        for index, row in hasil.iterrows():
-            text_hasil.insert(tk.END, 
-                f"Tahun: {row['Tahun']}\n"
-                f"Nama Paket: {row['Nama Paket']}\n"
-                f"SBU: {row['SBU']}\n"
-                f"{'-'*40}\n"
-            )
+        df2 = pd.concat([df, data_baru], ignore_index=True)
+        df2.to_excel(FILE_DB, index=False)
 
-        # Rekomendasi SBU terbanyak
-        rekomendasi = hasil["SBU"].value_counts().idxmax()
-        text_hasil.insert(tk.END, f"\nREKOMENDASI SBU: {rekomendasi} (paling sering digunakan)\n")
+        st.success("Data berhasil disimpan!")
 
-# Hapus Data berdasarkan Nama Paket
-def hapus_data():
-    keyword = entry_cari.get().lower()
-    df = pd.read_excel(FILE_NAME)
+elif menu == "Cari Paket":
+    st.subheader("Cari Historis SBU")
 
-    df_baru = df[~df["Nama Paket"].astype(str).str.lower().str.contains(keyword, na=False)]
-    df_baru.to_excel(FILE_NAME, index=False)
+    keyword = st.text_input("Masukkan Nama Paket")
 
-    messagebox.showinfo("Info", "Data yang sesuai keyword telah dihapus.")
+    if keyword:
+        hasil = df[df["Nama Paket"].str.contains(keyword, case=False, na=False)]
 
-# Kosongkan Form
-def kosongkan_form():
-    entry_tahun.delete(0, tk.END)
-    entry_paket.delete(0, tk.END)
-    entry_opd.delete(0, tk.END)
-    entry_hps.delete(0, tk.END)
-    entry_metode.delete(0, tk.END)
-    entry_sbu.delete(0, tk.END)
-    entry_penyedia.delete(0, tk.END)
-
-# GUI
-root = tk.Tk()
-root.title("Database Historis SBU - Versi Profesional")
-root.geometry("750x650")
-
-tk.Label(root, text="DATABASE HISTORIS SBU", font=("Arial", 16, "bold")).pack(pady=10)
-
-frame_input = tk.Frame(root)
-frame_input.pack()
-
-labels = ["Tahun", "Nama Paket", "OPD", "Nilai HPS", "Metode", "SBU", "Penyedia"]
-entries = []
-
-for label in labels:
-    tk.Label(frame_input, text=label).pack()
-    entry = tk.Entry(frame_input, width=50)
-    entry.pack()
-    entries.append(entry)
-
-entry_tahun, entry_paket, entry_opd, entry_hps, entry_metode, entry_sbu, entry_penyedia = entries
-
-tk.Button(root, text="Simpan Data", command=simpan_data, bg="green", fg="white").pack(pady=10)
-
-tk.Label(root, text="CARI & ANALISIS HISTORI PAKET", font=("Arial", 12, "bold")).pack(pady=10)
-
-entry_cari = tk.Entry(root, width=50)
-entry_cari.pack()
-
-tk.Button(root, text="Cari + Rekomendasi SBU", command=cari_data, bg="blue", fg="white").pack(pady=5)
-tk.Button(root, text="Hapus Data Sesuai Keyword", command=hapus_data, bg="red", fg="white").pack(pady=5)
-
-text_hasil = tk.Text(root, height=18, width=90)
-text_hasil.pack(pady=10)
-
-root.mainloop()
+        if hasil.empty:
+            st.warning("Data tidak ditemukan.")
+        else:
+            for index, row in hasil.iterrows():
+                st.write(
+                    f"- {row['SBU']} ({row['Tahun']} - {row['Kab/Kota']}, {row['Provinsi']})"
+                )
